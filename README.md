@@ -22,12 +22,12 @@ Datasets should be put inside `data/`. For example, `data/rellis_4class_100x100`
 ### Model weights
 
 SemanticKITTI
-* Single-frame: [Google Drive](https://drive.google.com/file/d/1vtuowdWECV3agyFPQllArxpyKXio4WHl/view?usp=sharing)
-* Recurrent: [Google Drive](https://drive.google.com/file/d/1jHOyH5EV_SCJupOoPpBD_0DCFhVWm-ds/view?usp=sharing)
+* Single-frame: [Google Drive](https://drive.google.com/file/d/1vtuowdWECV3agyFPQllArxpyKXio4WHl/view?usp=sharing), [Baidu Netdisk](https://pan.baidu.com/s/1TALbb1qz9NTB6bmre5UBtQ?pwd=rdl4)
+* Recurrent: [Google Drive](https://drive.google.com/file/d/1jHOyH5EV_SCJupOoPpBD_0DCFhVWm-ds/view?usp=sharing), [Baidu Netdisk](https://pan.baidu.com/s/1LsipUznc6Mi2rLSDrk4LcA?pwd=ocyi)
 
 RELLIS
-* Single-frame: [Google Drive](https://drive.google.com/file/d/16WzFsO_d96k4ASDpFWsEQn6IhGbXoT59/view?usp=sharing)
-* Recurrent: [Google Drive](https://drive.google.com/file/d/1c-_dCEJvRKbefRPuSYDMIpd8YZbeyMMM/view?usp=sharing)
+* Single-frame: [Google Drive](https://drive.google.com/file/d/16WzFsO_d96k4ASDpFWsEQn6IhGbXoT59/view?usp=sharing), [Baidu Netdisk](https://pan.baidu.com/s/1XVr6t6N7fcSP-kCX992lzQ?pwd=pxgq)
+* Recurrent: [Google Drive](https://drive.google.com/file/d/1c-_dCEJvRKbefRPuSYDMIpd8YZbeyMMM/view?usp=sharing), [Baidu Netdisk](https://pan.baidu.com/s/1jGpio4hy9npchNGoDoZ8Ug?pwd=6vx4)
 
 ### Run the models
 First extract the model weights
