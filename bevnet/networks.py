@@ -197,39 +197,6 @@ class SpMiddleNoDownsampleXYSingleFrame(nn.Module):
         )
 
 
-class SpMiddleNoDownsampleXYCatFrames(SpMiddleNoDownsampleXYSingleFrame):
-    """
-    No gradients!
-    """
-    def __init__(self, *args, **kwargs):
-        super(SpMiddleNoDownsampleXYCatFrames, self).__init__(*args, **kwargs)
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        voxel_features_cat = voxel_features[0]
-        coors_cat = coors[0]
-        coors_add = torch.zeros(4).cuda()
-        with torch.no_grad():
-            t = len(voxel_features)
-            for i in range(1, t):
-                voxel_features_cat = torch.cat((voxel_features_cat, voxel_features[i]), dim=0)
-
-                coors_add[3] = 512*i
-                coors[i][:] += coors_add.int()
-                coors_cat = torch.cat((coors_cat, coors[i].int()), dim=0)
-
-            ret = spconv.SparseConvTensor(voxel_features_cat, coors_cat, self.sparse_shape, batch_size)
-            ret = self.middle_conv(ret)
-            ret = ret.dense()                # shape [1, 64, 3, 512, 512*t]       [batch_size, features_dim, z, y, x]
-            N, C, D, H, W = ret.shape
-            ret = ret.view(N, C * D, H, W)    # [1, 192, 512, 512*t]
-
-            ret = torch.split(ret, 512, dim=3)
-            ret = list(ret)
-
-            return ret
-
-
 def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stride=1, padding=0,
                    conv_type='subm', norm_fn=None):
 
@@ -377,13 +344,6 @@ class VoxelResBackBone8x(nn.Module):
         N, C, D, H, W = out.shape
         out = out.view(N, C * D, H, W)
 
-        # attention  CVAM
-        # out = out.cpu()
-        # cbam = CBAMBlock(channel=128, reduction=4, kernel_size=7)
-        # out = cbam(out)
-        # # print(111)
-        # out = out.cuda()
-
         return out
 
 class VoxelResBackBone8xMultiStep(VoxelResBackBone8x):
@@ -425,13 +385,6 @@ class VoxelResBackBone8xMultiStep(VoxelResBackBone8x):
                 out = out.dense()  # shape [1, 64, 3, 512, 512]       [batch_size, features_dim, z, y, x]
                 N, C, D, H, W = out.shape
                 out = out.view(N, C * D, H, W)
-
-                # attention  CVAM
-                out = out.cpu()
-                cbam = CBAMBlock(channel=128, reduction=4, kernel_size=7)
-                out = cbam(out)
-                # print(111)
-                out = out.cuda()
 
                 output.append(out.detach())
             return output
@@ -589,7 +542,6 @@ class ResSpNoDownsampleXYMultiStep(ResSpNoDownsampleXY):
 
                 x1 = self.subm1(ret)
                 x1 = replace_feature(x1, self.bn1(x1.features))
-                # x1 = replace_feature(x1, x1.features + identity0.features)
                 x1 = replace_feature(x1, self.relu(x1.features))
                 identity1 = x1
 
@@ -648,7 +600,7 @@ class ResSpNoDownsampleXYMultiStep(ResSpNoDownsampleXY):
 
                 ret = ret.dense()                # shape [1, 64, 3, 512, 512]       [batch_size, features_dim, z, y, x]
                 N, C, D, H, W = ret.shape
-                ret = ret.view(N, C * D, H, W)    # 3D to 2D
+                ret = ret.view(N, C * D, H, W)    # 3D to 2D  shape [1, 192, 512, 512]
 
                 # attention  CBAM
                 ret = self.cbam(ret)
@@ -873,13 +825,7 @@ class VoxelResBackBone8xLargeKernel3D(nn.Module):
             nn.ReLU(),
         )
         self.num_point_features = 64
-        # self.backbone_channels = {
-        #     'x_conv1': 16,
-        #     'x_conv2': 32,
-        #     'x_conv3': 64,
-        #     'x_conv4': 128
-        # }
-        # self.forward_ret_dict = {}
+
 
     def forward(self, voxel_features, voxel_coords, batch_size):
         """
@@ -892,8 +838,6 @@ class VoxelResBackBone8xLargeKernel3D(nn.Module):
             batch_dict:
                 encoded_spconv_tensor: sparse tensor
         """
-        # voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
-        # batch_size = batch_dict['batch_size']
         input_sp_tensor = spconv.SparseConvTensor(
             features=voxel_features,
             indices=voxel_coords.int(),
@@ -907,8 +851,6 @@ class VoxelResBackBone8xLargeKernel3D(nn.Module):
         x_conv3 = self.conv3(x_conv2)
         # x_conv4 = self.conv4(x_conv3)
 
-        # for detection head
-        # [200, 176, 5] -> [200, 176, 2]
         out = self.conv_out(x_conv3)
 
         out = out.dense()
@@ -950,10 +892,8 @@ class VoxelResBackBone8xLargeKernel3DMultiStep(VoxelResBackBone8xLargeKernel3D):
                 x_conv3 = self.conv3(x_conv2)
                 # x_conv4 = self.conv4(x_conv3)
 
-                # for detection head
-                # [200, 176, 5] -> [200, 176, 2]
                 out = self.conv_out(x_conv3)
-                out = out.dense()  # shape [1, 64, 3, 512, 512]       [batch_size, features_dim, z, y, x]
+                out = out.dense()
                 N, C, D, H, W = out.shape
                 out = out.view(N, C * D, H, W)
                 output.append(out.detach())
@@ -1145,7 +1085,7 @@ class InpaintingFCHardnetRecurrentBase(object):
                                                           hidden_state=self.hidden_state)
             x = layer_output_list[-1].squeeze(0)           # squeeze(0):若第一个维度为1则去除这个维度    x.shape [6, 192, 512,512]
 
-        out = self.fchardnet(x)            # [6, 5, 512, 512]
+        out = self.fchardnet(x)
 
         if self.aggregation_type == 'post':
             layer_output_list, last_state_list = self.gru(out[None],
@@ -1185,201 +1125,3 @@ class InpaintingFCHardNetSkip1024(nn.Module):
 
 class InpaintingFCHardNetSkipGRU512(InpaintingFCHardnetRecurrentBase, InpaintingFCHardNetSkip1024):
     pass
-
-class SpMiddleAlinPreFramesNoDownsampleXY(nn.Module):
-    """
-    Only downsample z. Do not downsample X and Y.
-    """
-    def __init__(self,
-                 output_shape,
-                 num_input_features):
-        super(SpMiddleAlinPreFramesNoDownsampleXY, self).__init__()
-
-        BatchNorm1d = functools.partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
-        SpConv3d = functools.partial(spconv.SparseConv3d, bias=False)
-        SubMConv3d = functools.partial(spconv.SubMConv3d, bias=False)
-
-        sparse_shape = np.array(output_shape[1:4]) + [1, 0, 0]
-        self.sparse_shape = sparse_shape
-        self.voxel_output_shape = output_shape
-
-        self.subm1 = SubMConv3d(num_input_features, 32, 3, indice_key="subm0")
-        self.bn1 = BatchNorm1d(32)
-        self.relu = nn.ReLU()
-        self.subm2 = SubMConv3d(32, 32, 3, indice_key="subm0")
-        self.bn2 = BatchNorm1d(32)
-
-        self.spcv1 = SpConv3d(32, 64, 3, (2, 1, 1), padding=[1, 1, 1])
-        self.bn3 = BatchNorm1d(64)
-
-        self.subm3 = SubMConv3d(64, 64, 3, indice_key="subm1")
-        self.bn4 = BatchNorm1d(64)
-
-        self.subm4 = SubMConv3d(64, 64, 3, indice_key="subm1")
-        self.bn5 = BatchNorm1d(64)
-
-        self.subm5 = SubMConv3d(64, 64, 3, indice_key="subm1")
-        self.bn6 = BatchNorm1d(64)
-
-        self.spcv2 = SpConv3d(64, 64, 3, (2, 1, 1), padding=[0, 1, 1])
-        self.bn7 = BatchNorm1d(64)
-
-        self.subm6 = SubMConv3d(64, 64, 3, indice_key="subm2")
-        self.bn8 = BatchNorm1d(64)
-
-        self.subm7 = SubMConv3d(64, 64, 3, indice_key="subm2")
-        self.bn9 = BatchNorm1d(64)
-
-        self.subm8 = SubMConv3d(64, 64, 3, indice_key="subm2")
-        self.bn10 = BatchNorm1d(64)
-
-        self.spcv3 = SpConv3d(64, 64, (3, 1, 1), (2, 1, 1))
-        self.bn11 = BatchNorm1d(64)
-
-
-    def forward(self, voxel_features, coors, batch_size):
-        coors = coors.int()
-        ret = spconv.SparseConvTensor(voxel_features, coors, self.sparse_shape, batch_size)
-
-        x1 = self.subm1(ret)
-        x1 = replace_feature(x1, self.bn1(x1.features))
-        x1 = replace_feature(x1, self.relu(x1.features))
-        x2 = self.subm2(x1)
-        x2 = replace_feature(x2, self.bn2(x2.features))
-        x2 = replace_feature(x2, self.relu(x2.features))
-        x3 = self.spcv1(x2)
-        x3 = replace_feature(x3, self.bn3(x3.features))
-        x3 = replace_feature(x3, self.relu(x3.features))
-        x4 = self.subm3(x3)
-        x4 = replace_feature(x4, self.bn4(x4.features))
-        x4 = replace_feature(x4, self.relu(x4.features))
-        x5 = self.subm4(x4)
-        x5 = replace_feature(x5, self.bn5(x5.features))
-        x5 = replace_feature(x5, self.relu(x5.features))
-        x6 = self.subm5(x5)
-        x6 = replace_feature(x6, self.bn6(x6.features))
-        x6 = replace_feature(x6, self.relu(x6.features))
-        x7 = self.spcv2(x6)
-        x7 = replace_feature(x7, self.bn7(x7.features))
-        x7 = replace_feature(x7, self.relu(x7.features))
-        x8 = self.subm6(x7)
-        x8 = replace_feature(x8, self.bn8(x8.features))
-        x8 = replace_feature(x8, self.relu(x8.features))
-        x9 = self.subm7(x8)
-        x9 = replace_feature(x9, self.bn9(x9.features))
-        x9 = replace_feature(x9, self.relu(x9.features))
-        x10 = self.subm8(x9)
-        x10 = replace_feature(x10, self.bn10(x10.features))
-        x10 = replace_feature(x10, self.relu(x10.features))
-        x11 = self.spcv3(x10)
-        x11 = replace_feature(x11, self.bn11(x11.features))
-        ret = replace_feature(x11, self.relu(x11.features))
-
-        ret = ret.dense()
-        N, C, D, H, W = ret.shape
-        ret = ret.view(N, C * D, H, W)
-        return ret
-
-
-class SpMiddleAlinPreFramesNoDownsampleXYMultiStep(SpMiddleAlinPreFramesNoDownsampleXY):
-    """
-    No gradients!
-    """
-    def __init__(self, *args, **kwargs):
-        super(SpMiddleAlinPreFramesNoDownsampleXYMultiStep, self).__init__(*args, **kwargs)
-        self.x_pre1 = spconv.SparseConvTensor(torch.zeros(20000, 64), torch.zeros(20000, 4).int().cuda(), self.sparse_shape, 1)
-        self.x_pre2 = spconv.SparseConvTensor(torch.zeros(20000, 64), torch.zeros(20000, 4).int().cuda(), self.sparse_shape, 1)
-        self.x_pre3 = spconv.SparseConvTensor(torch.zeros(20000, 64), torch.zeros(20000, 4).int().cuda(), self.sparse_shape, 1)
-        self.xpre = [self.x_pre1, self.x_pre2, self.x_pre3]
-        SubMConv3d = functools.partial(spconv.SubMConv3d, bias=False)
-        BatchNorm1d = functools.partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
-
-        self.adapter_conv_1 = spconv.SparseSequential(
-            SubMConv3d(64, 64, 1, indice_key="subm5"),
-            BatchNorm1d(64),
-            nn.ReLU(),
-            SubMConv3d(64, 64, 1, indice_key="subm5"),
-            # nn.AvgPool1d((16, 1, 512), 1),
-            # nn.Sigmoid(),
-        )
-
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        with torch.no_grad():
-            t = len(voxel_features)
-            output = []
-            for i in range(t):
-                voxel_features_i = voxel_features[i]
-                coors_i = coors[i]
-                coors_i = coors_i.int()
-                ret = spconv.SparseConvTensor(voxel_features_i, coors_i, self.sparse_shape, batch_size)
-
-
-                x1 = self.subm1(ret)
-                x1 = replace_feature(x1, self.bn1(x1.features))
-                x1 = replace_feature(x1, self.relu(x1.features))
-                x2 = self.subm2(x1)
-                x2 = replace_feature(x2, self.bn2(x2.features))
-                x2 = replace_feature(x2, self.relu(x2.features))
-
-                x3 = self.spcv1(x2)                                    #
-                x3 = self.add_pre(x3, self.xpre[0])
-                x3 = replace_feature(x3, self.bn3(x3.features))
-                x3 = replace_feature(x3, self.relu(x3.features))
-                self.xpre[0] = x3
-
-                x4 = self.subm3(x3)
-                x4 = replace_feature(x4, self.bn4(x4.features))
-                x4 = replace_feature(x4, self.relu(x4.features))
-                x5 = self.subm4(x4)
-                x5 = replace_feature(x5, self.bn5(x5.features))
-                x5 = replace_feature(x5, self.relu(x5.features))
-                x6 = self.subm5(x5)
-                x6 = replace_feature(x6, self.bn6(x6.features))
-                x6 = replace_feature(x6, self.relu(x6.features))
-
-                x7 = self.spcv2(x6)                                   #
-                x7 = self.add_pre(x7, self.xpre[1])
-                x7 = replace_feature(x7, self.bn7(x7.features))
-                x7 = replace_feature(x7, self.relu(x7.features))
-                self.xpre[1] = x7
-
-                x8 = self.subm6(x7)
-                x8 = replace_feature(x8, self.bn8(x8.features))
-                x8 = replace_feature(x8, self.relu(x8.features))
-                x9 = self.subm7(x8)
-                x9 = replace_feature(x9, self.bn9(x9.features))
-                x9 = replace_feature(x9, self.relu(x9.features))
-                x10 = self.subm8(x9)
-                x10 = replace_feature(x10, self.bn10(x10.features))
-                x10 = replace_feature(x10, self.relu(x10.features))
-
-                x11 = self.spcv3(x10)                                  #
-                x11 = self.add_pre(x11, self.xpre[2])
-                x11 = replace_feature(x11, self.bn11(x11.features))
-                ret = replace_feature(x11, self.relu(x11.features))
-                self.xpre[2] = ret
-
-                ret = ret.dense()                # shape [1, 64, 3, 512, 512]       [batch_size, features_dim, z, y, x]
-                N, C, D, H, W = ret.shape
-                ret = ret.view(N, C * D, H, W)
-                output.append(ret.detach())
-
-                self.xpre = self.pre_adapter(self.xpre, self.adapter_conv_1)
-
-            return output
-
-    def add_pre(self, x_cur, x_pre_i):
-        fts_avg = torch.mean(x_pre_i.features, 0).cuda()
-        fts_cur = x_cur.features
-        for i in range(len(x_cur.features[0])):
-           fts_cur[i] += fts_avg
-        x_cur = replace_feature(x_cur, fts_cur)
-        return x_cur
-
-    def pre_adapter(self, xpre, adapter):
-        for i in range(len(xpre)):
-            xpre[i] = adapter(xpre[i])
-            xpre[i] = replace_feature(xpre[i], xpre[i].features / 10)
-        return xpre
