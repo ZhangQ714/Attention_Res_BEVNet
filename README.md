@@ -22,12 +22,12 @@ Datasets should be put inside `data/`. For example, `data/rellis_4class_100x100`
 ### Model weights
 
 SemanticKITTI
-* Single-frame:[Baidu Netdisk](https://pan.baidu.com/s/1TALbb1qz9NTB6bmre5UBtQ?pwd=rdl4)
-* Recurrent:[Baidu Netdisk](https://pan.baidu.com/s/1LsipUznc6Mi2rLSDrk4LcA?pwd=ocyi)
+* Single-frame: [Baidu Netdisk](https://pan.baidu.com/s/1TALbb1qz9NTB6bmre5UBtQ?pwd=rdl4)
+* Recurrent: [Baidu Netdisk](https://pan.baidu.com/s/1LsipUznc6Mi2rLSDrk4LcA?pwd=ocyi)
 
 RELLIS
-* Single-frame:[Baidu Netdisk](https://pan.baidu.com/s/1XVr6t6N7fcSP-kCX992lzQ?pwd=pxgq)
-* Recurrent:[Baidu Netdisk](https://pan.baidu.com/s/1jGpio4hy9npchNGoDoZ8Ug?pwd=6vx4)
+* Single-frame: [Baidu Netdisk](https://pan.baidu.com/s/1XVr6t6N7fcSP-kCX992lzQ?pwd=pxgq)
+* Recurrent: [Baidu Netdisk](https://pan.baidu.com/s/1jGpio4hy9npchNGoDoZ8Ug?pwd=6vx4)
 
 ### Run the models
 First extract the model weights
