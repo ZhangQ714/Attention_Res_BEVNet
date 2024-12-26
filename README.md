@@ -74,3 +74,7 @@ bash train_rellis4-unknown_recurrent.sh rellis4_100/recurrent/resSparse.yaml <ta
 ```
 Logs and model weights will be stored in a subdirectory of the config file
 `experiments/rellis4_100/recurrent/resSparse-<tag>-logs/`.
+
+## Acknowledgements
+Code repository for Semantic Terrain Classification for Off-Road Autonomous Driving (https://openreview.net/forum?id=AL4FPs84YdQ) (CoRL 2021)
+https://github.com/JHLee0513/semantic_bevnet.
